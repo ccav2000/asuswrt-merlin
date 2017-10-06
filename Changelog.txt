@@ -1,9 +1,14 @@
 Asuswrt-Merlin Changelog
 ========================
 
+380.65_6 (06-Oct-2017)
+   - CHANGED: Various updates from upstream versions
+
+
 380.65_5 (05-Oct-2017)
    - CHANGED: Updated dnsmasq to 2.78 (contains a number of
                security fixes).
+
 
 380.65_4 (28-Mar-2017)
    - FIXED: Various LAN/WAN issues with the RT-AC3200 due to
