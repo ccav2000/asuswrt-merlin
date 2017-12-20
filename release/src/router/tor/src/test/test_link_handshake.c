@@ -66,14 +66,6 @@ mock_send_authenticate(or_connection_t *conn, int type)
   return 0;
 }
 
-static tor_x509_cert_t *mock_own_cert = NULL;
-static tor_x509_cert_t *
-mock_get_own_cert(tor_tls_t *tls)
-{
-  (void)tls;
-  return tor_x509_cert_dup(mock_own_cert);
-}
-
 /* Test good certs cells */
 static void
 test_link_handshake_certs_ok(void *arg)
@@ -92,7 +84,6 @@ test_link_handshake_certs_ok(void *arg)
   MOCK(tor_tls_cert_matches_key, mock_tls_cert_matches_key);
   MOCK(connection_or_write_var_cell_to_buf, mock_write_var_cell);
   MOCK(connection_or_send_netinfo, mock_send_netinfo);
-  MOCK(tor_tls_get_own_cert, mock_get_own_cert);
 
   key1 = pk_generate(2);
   key2 = pk_generate(3);
@@ -102,12 +93,6 @@ test_link_handshake_certs_ok(void *arg)
    */
   tt_int_op(tor_tls_context_init(TOR_TLS_CTX_IS_PUBLIC_SERVER,
                                  key1, key2, 86400), ==, 0);
-
-  {
-    const tor_x509_cert_t *link_cert = NULL;
-    tt_assert(!tor_tls_get_my_certs(1, &link_cert, NULL));
-    mock_own_cert = tor_x509_cert_dup(link_cert);
-  }
 
   c1->base_.state = OR_CONN_STATE_OR_HANDSHAKING_V3;
   c1->link_proto = 3;
@@ -189,9 +174,6 @@ test_link_handshake_certs_ok(void *arg)
   UNMOCK(tor_tls_cert_matches_key);
   UNMOCK(connection_or_write_var_cell_to_buf);
   UNMOCK(connection_or_send_netinfo);
-  UNMOCK(tor_tls_get_own_cert);
-  tor_x509_cert_free(mock_own_cert);
-  mock_own_cert = NULL;
   memset(c1->identity_digest, 0, sizeof(c1->identity_digest));
   memset(c2->identity_digest, 0, sizeof(c2->identity_digest));
   connection_free_(TO_CONN(c1));
@@ -674,12 +656,11 @@ AUTHCHALLENGE_FAIL(nonzero_circid,
                    d->cell->circ_id = 1337)
 
 static tor_x509_cert_t *mock_peer_cert = NULL;
-
 static tor_x509_cert_t *
 mock_get_peer_cert(tor_tls_t *tls)
 {
   (void)tls;
-  return tor_x509_cert_dup(mock_peer_cert);
+  return mock_peer_cert;
 }
 
 static int
@@ -713,7 +694,6 @@ authenticate_data_cleanup(const struct testcase_t *test, void *arg)
   (void) test;
   UNMOCK(connection_or_write_var_cell_to_buf);
   UNMOCK(tor_tls_get_peer_cert);
-  UNMOCK(tor_tls_get_own_cert);
   UNMOCK(tor_tls_get_tlssecrets);
   UNMOCK(connection_or_close_for_error);
   UNMOCK(channel_set_circid_type);
@@ -730,10 +710,7 @@ authenticate_data_cleanup(const struct testcase_t *test, void *arg)
     crypto_pk_free(d->key2);
     tor_free(d);
   }
-  tor_x509_cert_free(mock_peer_cert);
-  tor_x509_cert_free(mock_own_cert);
   mock_peer_cert = NULL;
-  mock_own_cert = NULL;
 
   return 1;
 }
@@ -747,7 +724,6 @@ authenticate_data_setup(const struct testcase_t *test)
 
   MOCK(connection_or_write_var_cell_to_buf, mock_write_var_cell);
   MOCK(tor_tls_get_peer_cert, mock_get_peer_cert);
-  MOCK(tor_tls_get_own_cert, mock_get_own_cert);
   MOCK(tor_tls_get_tlssecrets, mock_get_tlssecrets);
   MOCK(connection_or_close_for_error, mock_close_for_err);
   MOCK(channel_set_circid_type, mock_set_circid_type);
@@ -797,8 +773,6 @@ authenticate_data_setup(const struct testcase_t *test)
   tor_x509_cert_get_der(link_cert, &der, &sz);
   mock_peer_cert = tor_x509_cert_decode(der, sz);
   tt_assert(mock_peer_cert);
-  mock_own_cert = tor_x509_cert_decode(der, sz);
-  tt_assert(mock_own_cert);
   tt_assert(! tor_tls_get_my_certs(0, &auth_cert, &id_cert));
   tor_x509_cert_get_der(auth_cert, &der, &sz);
   d->c2->handshake_state->auth_cert = tor_x509_cert_decode(der, sz);

@@ -79,7 +79,6 @@ main(int argc, char **argv)
 #if defined(_WIN32)
   (void) argc;
   (void) argv;
-  (void) which_test;
 
   fprintf(stderr, "This test is not supported on your OS.\n");
   return 77;
